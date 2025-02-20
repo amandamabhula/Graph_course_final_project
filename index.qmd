@@ -1,0 +1,437 @@
+---
+title: "ANALYSIS OF LUNG CANCER IN MEN AND AIR QUALITY"
+subtitle: "Gapminder Dataset"
+author: "by Amanda Mabhula"
+format: dashboard
+theme: lux
+---
+
+::: {.content-hidden when-format="html"}
+
+```{python}
+# Loading packages
+import pandas as pd
+import plotly.express as px 
+import numpy as np
+from itables import show
+import country_converter as coco
+
+
+# Loading datasets
+# Gapminder male lung cancer dataset
+gapminder_lung_cancer = pd.read_csv("data/lung_cancer_number_of_new_male_cases.csv")
+
+# Subset columns to year 2015 through 2019
+
+gapminder_lung_cancer = gapminder_lung_cancer[["country", "2015", "2016", "2017", "2018", "2019"]]
+
+gapminder_lung_cancer.head()
+
+# Prepare clean dataset by replacing "k" for values by multiplying by 1000
+
+for col in ["2015", "2016", "2017", "2018", "2019"]:
+    has_k = gapminder_lung_cancer[col].str.contains("k")
+    values = gapminder_lung_cancer[col].str.replace("k", "")
+    gapminder_lung_cancer[col] = np.where(has_k, values.astype(float) * 1000, values.astype(float))
+
+gapminder_lung_cancer.head()
+
+# Valueboxes: Summary stats
+# Convert male lung cancer dataset to long format and find country with highest and lowest news cases in 2019
+
+lung_cancer_long = gapminder_lung_cancer.melt(
+    id_vars = "country", 
+    var_name = "year",
+    value_name = "new_lung_cancer_cases"
+    )
+
+lung_cancer_long["year"] = pd.to_numeric(lung_cancer_long["year"], errors="coerce")
+
+
+# highest new lung cases in 2019
+lung_cancer_2019 = lung_cancer_long.query("year == 2019")
+
+highest_lung_cancer_cases = lung_cancer_2019.sort_values("new_lung_cancer_cases", ascending=False).head(1).squeeze()
+highest_cancer_cases_country = highest_lung_cancer_cases["country"]
+highest_cancer_cases_value = int(round(highest_lung_cancer_cases["new_lung_cancer_cases"], 0))
+
+# lowest new lung cases in 2019
+
+lowest_lung_cancer_cases = lung_cancer_2019.sort_values("new_lung_cancer_cases", ascending=True).head(1).squeeze()
+lowest_cancer_cases_country = lowest_lung_cancer_cases["country"]
+lowest_cancer_cases_value = int(round(lowest_lung_cancer_cases["new_lung_cancer_cases"], 0))
+
+# global new male lung cases reported in 2019
+
+total_lung_cases = int(lung_cancer_2019["new_lung_cancer_cases"].sum())
+
+
+# Interactive table: Create a data subset to calculate absolute and relative changes in new lung cancer cases over the 5-year period (2015-2019)
+
+lung_cancer_table = gapminder_lung_cancer[["country", "2015", "2019"]]
+
+lung_cancer_table["Absolute change"] = abs(lung_cancer_table["2019"] - lung_cancer_table["2015"])
+
+lung_cancer_table["Relative change"] = (lung_cancer_table["Absolute change"] / lung_cancer_table["2015"]) * 100
+
+lung_cancer_table["Relative change"] = lung_cancer_table["Relative change"].round(0).astype(str) + "%"
+
+
+# Map: Choropleth map showing new lung cancer cases over the 5-year period (2015-2019)
+
+lung_cancer_long["country_code"] = coco.convert(lung_cancer_long["country"], to="ISO3")
+lung_cancer_long
+
+fig_1 = px.choropleth(
+    lung_cancer_long,
+    locations="country_code",
+    color="new_lung_cancer_cases",
+    hover_name="country",
+    animation_frame="year",
+    title="New male lung cancer cases: 2015-2019",
+    labels = {"year" : "Year", "new_lung_cancer_cases": "Total new cases"},
+    color_continuous_scale="PuBu",
+    range_color=[0, 600000],
+    template="simple_white"
+)
+
+fig_1.show()
+
+# Bar chart: Highest new lung cancer cases by continent
+# add continent data
+lung_cancer_long["continent"] = lung_cancer_long["country"].apply(lambda x: coco.convert(names=x, to="continent"))
+
+
+lung_cancer_continent_2019 = lung_cancer_long.query("year == 2019")
+
+
+highest_new_cases_countries = lung_cancer_continent_2019.loc[lung_cancer_continent_2019.groupby("continent")["new_lung_cancer_cases"].idxmax()].sort_values(
+    ["new_lung_cancer_cases"], ascending=False
+)
+highest_new_cases_countries = highest_new_cases_countries.drop(index = 828)
+
+fig_2 = px.bar(
+    highest_new_cases_countries,
+    x = "new_lung_cancer_cases",
+    y = "country",
+    color = "continent",
+    title = "Countries With Highest New Male Lung Cancer Cases Per Continent",
+    labels={"continent": "Continent", "new_lung_cancer_cases": "Total New Cases", "country": "Country"},
+    template="simple_white",
+    color_discrete_sequence=px.colors.sequential.Turbo)
+
+fig_2.update_layout(
+    font=dict(size=12, 
+    color="black"),
+    coloraxis_showscale=False).update_yaxes(categoryorder = "total ascending")
+
+fig_2.show()
+
+```
+
+:::
+
+
+
+# LUNG CANCER
+
+
+## Row 1 {height="25%"}
+
+
+::: {.valuebox icon="lungs" title="Highest cases: 2019" color="primary"}
+
+`{python} str(highest_cancer_cases_value)`
+
+`{python} str(highest_cancer_cases_country)`
+
+:::
+
+
+::: {.valuebox icon="lungs-fill" title="Lowest cases: 2019" color="secondary"}
+
+`{python} str(lowest_cancer_cases_value)`
+
+`{python} str(lowest_cancer_cases_country)`
+
+:::
+
+
+::: {.valuebox icon="globe2" title="Total global cases: 2019" color="#1E90FF"}
+
+`{python} str(total_lung_cases)`
+
+:::
+
+
+
+## Row 2 {height="70%"}
+
+
+### Column  {.tabset}
+
+
+#### Map: Global New Cases (2015-2019)
+
+``` {python}
+fig_1.show()
+```
+
+#### Table: 5-Year Change (2015-2019)
+
+```{python}
+show(lung_cancer_table)
+```
+
+#### Figure: Highest Countries Per Continent
+
+``` {python}
+fig_2.show()
+```
+
+
+
+::: {.content-hidden when-format="html"}
+
+# CO2 EMISSIONS
+
+``` {python}
+
+# gapminder C02 emissions dataset
+gapminder_co2 = pd.read_csv("data/co2_cons.csv")
+
+# subset columns to year 2015 through 2019
+
+gapminder_co2 = gapminder_co2[["country", "2015", "2016", "2017", "2018", "2019"]]
+
+gapminder_co2.head()
+
+# Convert co2 dataset to long format
+co2_long = gapminder_co2.melt(
+    id_vars = "country", 
+    var_name = "year",
+    value_name = "total_co2"
+    )
+
+co2_long["year"] = pd.to_numeric(co2_long["year"], errors="coerce")
+
+co2_long["total_co2"] = pd.to_numeric(co2_long["total_co2"].astype(str).str.replace("−", "-"))
+
+# add continent info to the dataset
+co2_long["continent"] = co2_long["country"].apply(lambda x: coco.convert(names=x, to="continent"))
+
+# Valueboxes: Total global emissions in year 2015, 2017, 2019
+
+total_c02_2015 = int(co2_long.query("year == 2015")["total_co2"].sum())
+total_c02_2015
+
+total_c02_2017 = int(co2_long.query("year == 2017")["total_co2"].sum())
+total_c02_2017
+
+total_c02_2019 = int(co2_long.query("year == 2019")["total_co2"].sum())
+total_c02_2019
+
+# subset to 2019
+co2_2019 = co2_long.query("year == 2019")
+co2_2019
+
+# Bar chart: Countries with highest CO2 emissions by continent
+
+highest_co2_countries = co2_2019.loc[co2_2019.groupby("continent")["total_co2"].idxmax()].sort_values(
+    ["total_co2"], ascending=False
+)
+highest_co2_countries = highest_co2_countries.drop(index = 780)
+highest_co2_countries
+
+fig_3 = px.bar(
+   highest_co2_countries,
+    x = "country",
+    y = "total_co2",
+    color = "continent",
+    title = "Countries With Highest CO2 Emissions Per Continent",
+    labels={"continent": "Continent", "total_co2": "Total CO2 Emissions", "country": "Country"},
+    template="simple_white",
+    color_discrete_sequence=px.colors.sequential.BuPu_r)
+
+fig_3.update_layout(
+    font=dict(size=12, 
+    color="black"),
+    coloraxis_showscale=False,
+    legend=dict(
+    yanchor="top",
+    y=0.99,
+    xanchor="left",
+    x=0.8
+)).update_yaxes(categoryorder = "total ascending")
+
+fig_3.show()
+
+
+# Stacked bar chart:
+# Create a new categorical variable for total CO2 with Custom Functions, using arbitrary cutoffs, then analyze by continent
+
+# If the value is less than 100, "Low"
+# If the value is between 100 and 1000, "Medium"
+# If the value is greater than 1000, "High"
+
+def category_co2(total_co2):
+    if total_co2 < 100:
+        return "Low"
+    elif total_co2 >= 100 and total_co2 <= 1000:
+        return "Medium"
+    elif total_co2 > 1000:
+        return "High"
+
+category_co2_vec = np.vectorize(category_co2)
+
+co2_long["total_co2_category"] = category_co2_vec(co2_long["total_co2"])
+co2_long["total_co2_category"]
+
+# subset year 2019
+co2_long_2019 = co2_long.query("year == 2019").drop(index = 780)
+co2_long_2019
+
+fig_4 = px.histogram(
+    co2_long_2019,
+    x = "continent",
+    color = "total_co2_category",
+    color_discrete_sequence=["#c05df5", "#8634eb", "#5a0587"],
+    title="Distribution of Countries by CO2 Emissions Levels, Per Continent",
+    labels={"count": "Count", "continent": "Continent", "total_co2_category": " Total CO2 Category"},
+    template="simple_white"
+    ).update_layout(
+        font=dict(size=12, color="black"),
+        legend=dict(
+            yanchor="top",
+             y=0.99,
+             xanchor="left",
+             x=0.8
+))
+
+fig_4.show()
+
+```
+
+:::
+
+
+
+# CO2 EMISSIONS
+
+
+## Row 1 {height="20%"}
+
+::: {.valuebox icon="cloud-fog-fill" title="Global CO2 Emissions: 2015" color="#592a6e" font_size="50%"}
+
+`{python} str(total_c02_2015)`
+
+:::
+
+
+::: {.valuebox icon="cloud-fog-fill" title="Global CO2 Emissions: 2017" color="#6d6a6e" font_size="50%"}
+
+`{python} str(total_c02_2017)`
+
+:::
+
+
+::: {.valuebox icon="cloud-fog-fill" title="Global CO2 Emissions: 2019" color="#bf42f5" font_size="50%"}
+
+`{python} str(total_c02_2019)`
+
+:::
+
+
+## Row 2 {height="70%"}
+
+
+### Column {width="50%"}
+
+```{python}
+fig_3.show()
+```
+
+### Column 
+
+```{python}
+fig_4.show()
+```
+
+
+
+
+::: {.content-hidden when-format="html"}
+
+# LUNG CANCER AND CO2 EMISSIONS
+
+```{python}
+
+lung_cancer_co2_merged = pd.merge(
+    lung_cancer_2019, 
+    co2_long_2019,
+    how="left",
+    on=["country", "year"]).sort_values(["country", "year"]).dropna()
+    
+lung_cancer_co2_merged    
+
+
+fig_5 = px.scatter(
+    lung_cancer_co2_merged ,
+    x = "new_lung_cancer_cases",
+    y = "total_co2",
+    color="continent",
+    log_y=True,
+    log_x=True,
+    hover_name="country", 
+    title = "Relationship Between Lung Cancer Cases and CO2 Emissions",
+    labels={"new_lung_cancer_cases" : "New Male Lung Cancer Cases", "total_co2": "Global Total CO2 Emissions (tonnes)", "continent": "Continent"},
+    template="simple_white"
+).update_layout(
+    coloraxis_showscale=False, 
+    font=dict(size=12, color="black"),
+    legend=dict(
+    yanchor="top",
+    y=0.99,
+    xanchor="left",
+    x=0.01
+))
+
+
+fig_5.show()
+
+```
+
+::: 
+
+# LUNG CANCER AND CO2 EMISSIONS
+
+
+## Row 
+
+
+### Column 1 { width="50%"}
+
+```{python}
+fig_5.show()
+```
+
+
+### Column 2 {.tabset height="50%"}
+
+#### Summary
+
+Lung cancer accounts for the majority of cancer-related deaths, globally, with more men affected than women [1]. While smoking is known to be the strongest risk factor for lung cancer, accounting for over 85% of all lung cancer cases, studies suggests other factors including environmental factors (e.g., air quality) also play an important role. Using the Gapminder dataset from the Gapminder Foundation <https://www.gapminder.org/data/>, these data show that China had the highest total new lung cases (504 000 - 576 000) in men over the 5-year period between 2015 to 2019. Other countries including the United States, Japan, and India also had some of the highest lung cancer incidence, ranging from 61 300 to 138 000. Expectedly, due to high incidence of new cases in countries like China, Japan, and Russia, the Asian continent accounted for the highest new lung cases in men.
+
+Rising global CO2 emissions are causing an increase in the amount of atmospheric C02 resulting in decreased air quality, global warming, and consequentially, climate change and climate-related health conditions. This analysis of data from the Gapminder Foundation are in-line with current literature as we observe an increase in C02 emissions from 2015 to 2019, with China being the biggest contributor in Asia and globally. The majority of countries in the African continent contribute the lowest C02 emissions (defined as <100 tonnes - in this analysis) to the global amount, while Asia has more countries (*n*=3) with high (defined as >1000 tonnes - in this analysis) C02 emissions.
+
+In this analysis we observed a linear relationship between new lung cancer cases in men and total C02 emissions suggesting a role for C02 emissions and air quality in the increasing incidence of lunng cancer. Although smoke is known to be strongest risk factor for lung cancer, a recent study has reported that lung cancer diagnoses are increasing among never-smokers, with air quality cited as a significant contributor [3]. Further studies are warranted to determine the relationship between air qulaity, C02 emissions and lung cancer incidence.
+
+
+#### References
+
+1. Geneva: World Health Organization. https://www.who.int/news-room/fact-sheets/detail/cancer (accessed 01 February 2025). 
+
+2. Luo Ganfeng et al. Estimated world-wide variation and trends in incidence of lung cancer by histological subtype in 2022 and over time: a  population-based study. The Lancet Respiratory Medicine.DOI: 10.1016/S2213-2600(24)00428-4.
+
+
+
