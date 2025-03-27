@@ -16,6 +16,11 @@ import numpy as np
 from itables import show
 import country_converter as coco
 
+pd.options.mode.copy_on_write = True
+
+```
+
+```{python}
 
 # Loading datasets
 # Gapminder male lung cancer dataset
@@ -27,7 +32,7 @@ gapminder_lung_cancer = gapminder_lung_cancer[["country", "2015", "2016", "2017"
 
 gapminder_lung_cancer.head()
 
-# Prepare clean dataset by replacing "k" for values by multiplying by 1000
+# Prepare clean dataset by replacing "k" in values greater than 1000, by multiplying by 1000
 
 for col in ["2015", "2016", "2017", "2018", "2019"]:
     has_k = gapminder_lung_cancer[col].str.contains("k")
@@ -37,7 +42,7 @@ for col in ["2015", "2016", "2017", "2018", "2019"]:
 gapminder_lung_cancer.head()
 
 # Valueboxes: Summary stats
-# Convert male lung cancer dataset to long format and find country with highest and lowest news cases in 2019
+# Convert male lung cancer dataset to long format and find country with highest and lowest new cases in 2019
 
 lung_cancer_long = gapminder_lung_cancer.melt(
     id_vars = "country", 
@@ -63,7 +68,7 @@ lowest_cancer_cases_value = int(round(lowest_lung_cancer_cases["new_lung_cancer_
 
 # global new male lung cases reported in 2019
 
-total_lung_cases = int(lung_cancer_2019["new_lung_cancer_cases"].sum())
+total_new_lung_cancer_cases = int(lung_cancer_2019["new_lung_cancer_cases"].sum())
 
 
 # Interactive table: Create a data subset to calculate absolute and relative changes in new lung cancer cases over the 5-year period (2015-2019)
@@ -77,18 +82,28 @@ lung_cancer_table["Relative change"] = (lung_cancer_table["Absolute change"] / l
 lung_cancer_table["Relative change"] = lung_cancer_table["Relative change"].round(0).astype(str) + "%"
 
 
-# Map: Choropleth map showing new lung cancer cases over the 5-year period (2015-2019)
+# Map: Choropleth map showing new lung cancer cases in 2019
 
-lung_cancer_long["country_code"] = coco.convert(lung_cancer_long["country"], to="ISO3")
-lung_cancer_long
+lung_cancer_2019["country_code"] = coco.convert(lung_cancer_2019["country"], to="ISO3")
+lung_cancer_2019
+
+## re-map UAE and drop "Serbia and Montenegro" since these two exist as separate countries in the dataset
+
+custom_map =  {"UAE" : "United Arab Emirates"}
+
+lung_cancer_2019["country"] = lung_cancer_2019["country"].replace(custom_map)
+
+lung_cancer_2019["country_code"] = coco.convert(lung_cancer_2019["country"], to="ISO3", not_found="original")
+
+lung_cancer_2019 = lung_cancer_2019.drop(index = 982)
+lung_cancer_2019
 
 fig_1 = px.choropleth(
-    lung_cancer_long,
+    lung_cancer_2019,
     locations="country_code",
     color="new_lung_cancer_cases",
     hover_name="country",
-    animation_frame="year",
-    title="New male lung cancer cases: 2015-2019",
+    title="New male lung cancer cases: 2019",
     labels = {"year" : "Year", "new_lung_cancer_cases": "Total new cases"},
     color_continuous_scale="PuBu",
     range_color=[0, 600000],
@@ -99,16 +114,16 @@ fig_1.show()
 
 # Bar chart: Highest new lung cancer cases by continent
 # add continent data
-lung_cancer_long["continent"] = lung_cancer_long["country"].apply(lambda x: coco.convert(names=x, to="continent"))
+lung_cancer_2019["continent"] = lung_cancer_2019["country"].apply(lambda x: coco.convert(names=x, to="continent"))
 
+lung_cancer_2019
 
-lung_cancer_continent_2019 = lung_cancer_long.query("year == 2019")
-
-
-highest_new_cases_countries = lung_cancer_continent_2019.loc[lung_cancer_continent_2019.groupby("continent")["new_lung_cancer_cases"].idxmax()].sort_values(
+highest_new_cases_countries = lung_cancer_2019.loc[lung_cancer_2019.groupby("continent")["new_lung_cancer_cases"].idxmax()].sort_values(
     ["new_lung_cancer_cases"], ascending=False
 )
-highest_new_cases_countries = highest_new_cases_countries.drop(index = 828)
+
+highest_new_cases_countries
+
 
 fig_2 = px.bar(
     highest_new_cases_countries,
@@ -136,7 +151,7 @@ fig_2.show()
 # LUNG CANCER
 
 
-## Row 1 {height="25%"}
+## Row 1 {height="20%"}
 
 
 ::: {.valuebox icon="lungs" title="Highest cases: 2019" color="primary"}
@@ -159,25 +174,25 @@ fig_2.show()
 
 ::: {.valuebox icon="globe2" title="Total global cases: 2019" color="#1E90FF"}
 
-`{python} str(total_lung_cases)`
+`{python} str(total_new_lung_cancer_cases)`
 
 :::
 
 
 
-## Row 2 {height="70%"}
+## Row 2 {height="80%"}
 
 
 ### Column  {.tabset}
 
 
-#### Map: Global New Cases (2015-2019)
+#### Map: Global New Cases (2019)
 
 ``` {python}
 fig_1.show()
 ```
 
-#### Table: 5-Year Change (2015-2019)
+#### Table: 5-Year Change (2015:2019)
 
 ```{python}
 show(lung_cancer_table)
@@ -217,7 +232,10 @@ co2_long["year"] = pd.to_numeric(co2_long["year"], errors="coerce")
 
 co2_long["total_co2"] = pd.to_numeric(co2_long["total_co2"].astype(str).str.replace("−", "-"))
 
-# add continent info to the dataset
+# replace UAE with United Arab Emirates in country and add continent info to the df
+
+co2_long["country"] = co2_long["country"].replace(custom_map)
+
 co2_long["continent"] = co2_long["country"].apply(lambda x: coco.convert(names=x, to="continent"))
 
 # Valueboxes: Total global emissions in year 2015, 2017, 2019
@@ -231,7 +249,7 @@ total_c02_2017
 total_c02_2019 = int(co2_long.query("year == 2019")["total_co2"].sum())
 total_c02_2019
 
-# subset to 2019
+# create 2019 data subset
 co2_2019 = co2_long.query("year == 2019")
 co2_2019
 
@@ -240,7 +258,6 @@ co2_2019
 highest_co2_countries = co2_2019.loc[co2_2019.groupby("continent")["total_co2"].idxmax()].sort_values(
     ["total_co2"], ascending=False
 )
-highest_co2_countries = highest_co2_countries.drop(index = 780)
 highest_co2_countries
 
 fig_3 = px.bar(
@@ -257,18 +274,13 @@ fig_3.update_layout(
     font=dict(size=12, 
     color="black"),
     coloraxis_showscale=False,
-    legend=dict(
-    yanchor="top",
-    y=0.99,
-    xanchor="left",
-    x=0.8
-)).update_yaxes(categoryorder = "total ascending")
+).update_xaxes(categoryorder = "total descending")
 
 fig_3.show()
 
 
 # Stacked bar chart:
-# Create a new categorical variable for total CO2 with Custom Functions, using arbitrary cutoffs, then analyze by continent
+# Creating a new categorical variable for total CO2 with Custom Functions, using arbitrary cutoffs, then analyzing by continent
 
 # If the value is less than 100, "Low"
 # If the value is between 100 and 1000, "Medium"
@@ -300,13 +312,8 @@ fig_4 = px.histogram(
     labels={"count": "Count", "continent": "Continent", "total_co2_category": " Total CO2 Category"},
     template="simple_white"
     ).update_layout(
-        font=dict(size=12, color="black"),
-        legend=dict(
-            yanchor="top",
-             y=0.99,
-             xanchor="left",
-             x=0.8
-))
+        font=dict(size=12, color="black")
+)
 
 fig_4.show()
 
@@ -370,7 +377,7 @@ lung_cancer_co2_merged = pd.merge(
     lung_cancer_2019, 
     co2_long_2019,
     how="left",
-    on=["country", "year"]).sort_values(["country", "year"]).dropna()
+    on=["country", "year", "continent"]).sort_values(["country", "year", "continent"]).dropna()
     
 lung_cancer_co2_merged    
 
@@ -388,13 +395,8 @@ fig_5 = px.scatter(
     template="simple_white"
 ).update_layout(
     coloraxis_showscale=False, 
-    font=dict(size=12, color="black"),
-    legend=dict(
-    yanchor="top",
-    y=0.99,
-    xanchor="left",
-    x=0.01
-))
+    font=dict(size=12, color="black")
+)
 
 
 fig_5.show()
